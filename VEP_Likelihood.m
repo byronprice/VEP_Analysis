@@ -16,93 +16,144 @@ numFiles = length(fileList);
 fullWin = 1:200;
 minWin = [60,120]; % milliseconds
 maxWin = 1:250;
-Pr = zeros(3000,2);
-totResponse = cell(numFiles,1);
-totnumChans = zeros(numFiles,1);
-totnumStimuli = zeros(numFiles,1);
-totnumReps = zeros(numFiles,1);
-for ii=1:numFiles
-    load(fileList(ii).name);
-    if exist('MapParams','var') == 1
-        totResponse{ii} = MapParams.Response;
-        totnumChans(ii) = size(MapParams.significantStimuli,1);
-        totnumStimuli(ii) = size(MapParams.significantStimuli,2);
-        totnumReps(ii) = size(MapParams.Response,3);
 
-        for jj=1:totnumChans(ii)
-            if isnan(MapParams.centerMass.x(jj)) == 0
-                xc = MapParams.centerMass.x(jj);
-                yc = MapParams.centerMass.y(jj);
-                for kk=1:totnumStimuli(ii)
-                    xpos = MapParams.centerVals(kk,1);
-                    ypos = MapParams.centerVals(kk,2);
-                    dist = ceil(sqrt((xc-xpos).^2+(yc-ypos).^2));
-                    for ll=1:totnumReps(ii)
-                        [minVal,minInd] = min(MapParams.Response(jj,kk,ll,fullWin));
-                        if minInd > minWin(1) && minInd < minWin(2) && minVal < -150
-                            Pr(dist,1) = Pr(dist,1)+1;
+lowMin=[60];
+highMin =[110];
+thresh = [-150,-200];
+maxParam = zeros(4,4);
+minParam = zeros(4,4);
+Residuals = zeros(4,4);
+
+for lowii = 1
+    for highii = 1
+        for threshii=1:2
+            Pr_Hit = zeros(3000,2);
+            
+            Pr_Size = zeros(3000,2);
+            
+            sizes = [];
+            totResponse = cell(numFiles,1);
+            totnumChans = zeros(numFiles,1);
+            totnumStimuli = zeros(numFiles,1);
+            totnumReps = zeros(numFiles,1);
+            for ii=1:numFiles
+                load(fileList(ii).name);
+                if exist('MapParams','var') == 1
+                    totResponse{ii} = MapParams.Response;
+                    totnumChans(ii) = size(MapParams.significantStimuli,1);
+                    totnumStimuli(ii) = size(MapParams.significantStimuli,2);
+                    totnumReps(ii) = size(MapParams.Response,3);
+                    
+                    for jj=1:totnumChans(ii)
+                        if isnan(MapParams.centerMass.x(jj)) == 0
+                            xc = MapParams.centerMass.x(jj);
+                            yc = MapParams.centerMass.y(jj);
+                            for kk=1:totnumStimuli(ii)
+                                xpos = MapParams.centerVals(kk,1);
+                                ypos = MapParams.centerVals(kk,2);
+                                dist = ceil(sqrt((xc-xpos).^2+(yc-ypos).^2));
+                                dist = dist-mod(dist,20)+1;
+                                for ll=1:totnumReps(ii)
+                                    VEP =squeeze(MapParams.Response(jj,kk,ll,fullWin));
+                                    baseline = 0;
+                                    
+                                    VEP = VEP-baseline;
+                                    [minVal,minInd] = min(VEP);
+%                                     sizes = [sizes;[minVal,dist]];
+                                    if minInd > lowMin(lowii) && minInd < highMin(highii) && minVal < thresh(threshii)
+                                       Pr_Hit(dist,1) = Pr_Hit(dist,1)+1;
+                                    
+                                    Pr_Hit(dist,2) = Pr_Hit(dist,2)+1;
+                                    if minVal < thresh(threshii)
+                                        Pr_Size(dist,1) = Pr_Size(dist,1)+1;
+                                    end
+                                    Pr_Size(dist,2) = Pr_Size(dist,2)+1;
+                                end
+                            end
                         end
-                        Pr(dist,2) = Pr(dist,2)+1;
                     end
+                    clear MapParams;
                 end
             end
+            
+            distVals = 1:3000;
+            
+            % figure();scatter(distVals,Pr_Size(:,1)./Pr_Size(:,2));
+            % title('Probability of VEP < -150 versus Distance to Center of Mass')
+            %
+            % figure();scatter(sizes(:,2),sizes(:,1));
+            % title('Size of VEP versus Distance to Center of Mass')
+            
+            distVals = distVals(Pr_Hit(:,2)>0)';
+            Pr_Hit = Pr_Hit(Pr_Hit(:,2)>0,:);
+            
+            distVals = distVals(Pr_Hit(:,1)>1);
+            Pr_Hit = Pr_Hit(Pr_Hit(:,1)>1,:);
+            
+            finalPr = Pr_Hit(:,1)./Pr_Hit(:,2);
+            % figure();scatter(distVals,finalPr);
+            % title('Probability of VEP-like Event versus Distance to Center of Mass')
+            %
+            % % Y = A*exp(B*X) ... Pr(VEP-event | distance to center of mass)
+            % % ln(Y) = ln(A)+B*X
+            % %   or Y = A*exp(B*X)+C
+            %
+            % N = length(finalPr);
+            %
+            % Design = zeros(N,1);
+            % Y = zeros(N,1);
+            % for ii=1:N
+            %     Design(ii) = distVals(ii);
+            %     Y(ii) = -log(finalPr(ii));
+            % end
+            %
+            % [b,dev,stats] = glmfit(Design,Y,'normal');
+            %
+            %
+            % figure();plot(distVals,-log(b(1))*exp(-b(2)*distVals));
+            % title(sprintf('Exponential Fit to Probability Data, Pr = %3.2f*exp(%3.2f*X)',-log(b(1)),-b(2)));
+            %
+            % % fit non-linear curve
+            % x0 = [1,-0.002,0.2];
+            %
+            % myFun = @(x,data) (x(1)*exp(x(2)*data)+x(3));
+            %
+            % [x,resnorm] = lsqcurvefit(myFun,x0,distVals,finalPr);
+            % resnorm
+            %
+            % figure();scatter(distVals,finalPr);hold on
+            % plot(1:2000,x(1)*exp(x(2).*(1:2000))+x(3),'r','LineWidth',2);
+            % legend('Data',sprintf('Fit: Pr = %3.3f*exp(%3.3f*x)+%3.3f',x(1),x(2),x(3)));
+            % xlabel('Distance to Retinotopic Center of Mass (pixels)');
+            % ylabel('Probability of VEP-like Event');
+            % title('Likelihood: Pr(VEP-like Event | Distance to Retinotopic Center of Mass)');
+            
+%             x0 = [0.5 200 0.2];
+%             
+%             myFun = @(x,data) (x(1)*exp(-(data.*data)./(x(2).*x(2)))+x(3));
+%             
+%             [x,resnorm] = lsqcurvefit(myFun,x0,distVals,finalPr);
+%             resnorm
+                
+              %x0 = [0.2 0.02 300 0.09];
+              x0 = [0.3 300 0.1];
+                  
+              %myFun = @(x,data) (x(1)./(1+exp(x(2)*(data-x(3))))+x(4));
+              myFun = @(x,data) (x(1).*exp(-(data.*data)./(x(2).*x(2)))+x(3));
+
+              [x,resnorm] =  lsqcurvefit(myFun,x0,distVals,finalPr);
+               x
+            maxParam(lowii,highii,threshii) = x(1);
+            minParam(lowii,highii,threshii) = x(3);
+            Residuals(lowii,highii,threshii) = resnorm;
+            figure();scatter(distVals,finalPr);hold on;
+            plot(1:2000,myFun(x,1:2000),'r','LineWidth',2);
+            legend('Data',sprintf('Min Latency = %d, Max Latency = %d (msecs)',lowMin(lowii),highMin(highii)));
+            xlabel('Distance to Retinotopic Center of Mass (pixels)');
+            ylabel('Probability of VEP-like Event');
+            title('Likelihood: Pr(VEP-like Event | Distance to Retinotopic Center of Mass)');
         end
-        clear MapParams;
-    end
+     end
 end
 
-distVals = 1:3000;
 
-distVals = distVals(Pr(:,2)>0)';
-Pr = Pr(Pr(:,2)>0,:);
-
-distVals = distVals(Pr(:,1)>15);
-Pr = Pr(Pr(:,1)>15,:);
-
-finalPr = Pr(:,1)./Pr(:,2);
-figure();scatter(distVals,finalPr);
-
-figure();scatter(distVals,log(finalPr));
-% Y = A*exp(B*X) ... Pr(VEP-event | distance to center of mass)
-% ln(Y) = ln(A)+B*X
-%   or Y = A*exp(B*X)+C
-
-N = length(finalPr);
-
-Design = zeros(N,1);
-Y = zeros(N,1);
-for ii=1:N
-    Design(ii) = distVals(ii);
-    Y(ii) = -log(finalPr(ii));
-end
-
-[b,dev,stats] = glmfit(Design,Y,'normal');
-
-
-figure();plot(distVals,-log(b(1))*exp(-b(2)*distVals));
-
-% fit non-linear curve
-x0 = [1,-0.002,0.2];
-
-myFun = @(x,data) (x(1)*exp(x(2)*data)+x(3));
-
-[x,resnorm] = lsqcurvefit(myFun,x0,distVals,finalPr);
-
-figure();scatter(distVals,finalPr);hold on
-plot(1:2000,x(1)*exp(x(2).*(1:2000))+x(3),'r','LineWidth',2);
-legend('Data',sprintf('Fit: Pr = %3.3f*exp(%3.3f*x)+%3.3f',x(1),x(2),x(3)));
-xlabel('Distance to Retinotopic Center of Mass (pixels)');
-ylabel('Probability of VEP-like Event');
-title('Likelihood: Pr(VEP-like Event | Distance to Retinotopic Center of Mass)');
-
-x0 = [0.5 200 0.2];
-
-myFun = @(x,data) (x(1)*exp(-(data.*data)./(x(2).*x(2)))+x(3));
-
-[x,resnorm] = lsqcurvefit(myFun,x0,distVals,finalPr);
-figure();scatter(distVals,finalPr);hold on;
-plot(1:2000,myFun(x,1:2000),'r','LineWidth',2);
-legend('Data',sprintf('Fit: Pr = %3.3f*exp(-x^2/(%3.3f)^2)+%3.3f',x(1),x(2),x(3)));
-xlabel('Distance to Retinotopic Center of Mass (pixels)');
-ylabel('Probability of VEP-like Event');
-title('Likelihood: Pr(VEP-like Event | Distance to Retinotopic Center of Mass)');
