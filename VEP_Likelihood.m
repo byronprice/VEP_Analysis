@@ -19,14 +19,16 @@ maxWin = 1:250;
 
 lowMin=[60];
 highMin =[110];
-thresh = [-150,-200];
+thresh = [-150];
 maxParam = zeros(4,4);
 minParam = zeros(4,4);
 Residuals = zeros(4,4);
 
+h(1) = figure();
+h(2) = figure();
 for lowii = 1
     for highii = 1
-        for threshii=1:2
+        for threshii=1
             Pr_Hit = zeros(3000,2);
             
             Pr_Size = zeros(3000,2);
@@ -62,7 +64,10 @@ for lowii = 1
 %                                     sizes = [sizes;[minVal,dist]];
                                     if minInd > lowMin(lowii) && minInd < highMin(highii) && minVal < thresh(threshii)
                                        Pr_Hit(dist,1) = Pr_Hit(dist,1)+1;
-                                    
+                                       plot(h(1),VEP);hold on;
+                                    else
+                                        plot(h(2),VEP);hold on;
+                                    end
                                     Pr_Hit(dist,2) = Pr_Hit(dist,2)+1;
                                     if minVal < thresh(threshii)
                                         Pr_Size(dist,1) = Pr_Size(dist,1)+1;
@@ -136,10 +141,10 @@ for lowii = 1
 %             resnorm
                 
               %x0 = [0.2 0.02 300 0.09];
-              x0 = [0.3 300 0.1];
+              x0 = [0.3 250 0.1];
                   
               %myFun = @(x,data) (x(1)./(1+exp(x(2)*(data-x(3))))+x(4));
-              myFun = @(x,data) (x(1).*exp(-(data.*data)./(x(2).*x(2)))+x(3));
+              myFun = @(x,data) (x(1).*exp(-(data.*data)./(2.*x(2).*x(2)))+x(3));
 
               [x,resnorm] =  lsqcurvefit(myFun,x0,distVals,finalPr);
                x
