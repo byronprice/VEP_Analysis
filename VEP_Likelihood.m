@@ -24,8 +24,7 @@ maxParam = zeros(4,4);
 minParam = zeros(4,4);
 Residuals = zeros(4,4);
 
-h(1) = figure();
-h(2) = figure();
+total = [];
 for lowii = 1
     for highii = 1
         for threshii=1
@@ -34,6 +33,7 @@ for lowii = 1
             Pr_Size = zeros(3000,2);
             
             sizes = [];
+            totSignifs = cell(numFiles,1);
             totResponse = cell(numFiles,1);
             totnumChans = zeros(numFiles,1);
             totnumStimuli = zeros(numFiles,1);
@@ -45,6 +45,7 @@ for lowii = 1
                     totnumChans(ii) = size(MapParams.significantStimuli,1);
                     totnumStimuli(ii) = size(MapParams.significantStimuli,2);
                     totnumReps(ii) = size(MapParams.Response,3);
+                    totSignifs{ii} = MapParams.significantStimuli;
                     
                     for jj=1:totnumChans(ii)
                         if isnan(MapParams.centerMass.x(jj)) == 0
@@ -54,7 +55,7 @@ for lowii = 1
                                 xpos = MapParams.centerVals(kk,1);
                                 ypos = MapParams.centerVals(kk,2);
                                 dist = ceil(sqrt((xc-xpos).^2+(yc-ypos).^2));
-                                dist = dist-mod(dist,20)+1;
+                                dist = dist-mod(dist,10)+1;
                                 for ll=1:totnumReps(ii)
                                     VEP =squeeze(MapParams.Response(jj,kk,ll,fullWin));
                                     baseline = 0;
@@ -64,9 +65,9 @@ for lowii = 1
 %                                     sizes = [sizes;[minVal,dist]];
                                     if minInd > lowMin(lowii) && minInd < highMin(highii) && minVal < thresh(threshii)
                                        Pr_Hit(dist,1) = Pr_Hit(dist,1)+1;
-                                       plot(h(1),VEP);hold on;
+                                       total = [total;[1,dist-1]];
                                     else
-                                        plot(h(2),VEP);hold on;
+                                       total = [total;[0,dist-1]]; 
                                     end
                                     Pr_Hit(dist,2) = Pr_Hit(dist,2)+1;
                                     if minVal < thresh(threshii)
@@ -156,9 +157,93 @@ for lowii = 1
             legend('Data',sprintf('Min Latency = %d, Max Latency = %d (msecs)',lowMin(lowii),highMin(highii)));
             xlabel('Distance to Retinotopic Center of Mass (pixels)');
             ylabel('Probability of VEP-like Event');
-            title('Likelihood: Pr(VEP-like Event | Distance to Retinotopic Center of Mass)');
+            title('Likelihood: Pr(VEP-like Event at Specific Distance to Retinotopic Center of Mass)');
         end
      end
 end
 
+newTotal = total(total(:,2)<=1600,:);
 
+totalDataPoints = length(newTotal);
+
+allDists = unique(newTotal(:,2));
+
+distLen = length(allDists);
+
+distNums = zeros(distLen,1);
+
+hitAndDistNums = zeros(distLen,1);
+
+forDistFit = [];
+forHitDistFit = [];
+for ii=1:totalDataPoints
+    for jj=1:distLen
+        if newTotal(ii,2) == allDists(jj)
+            distNums(jj) = distNums(jj)+1;
+            forDistFit = [forDistFit,allDists(jj)];
+        end
+        if newTotal(ii,2) == allDists(jj) && newTotal(ii,1) == 1
+            hitAndDistNums(jj) = hitAndDistNums(jj)+1;
+            forHitDistFit = [forHitDistFit,allDists(jj)];
+        end
+    end
+end
+PrDist = distNums./totalDataPoints;
+PrHitAndDist = hitAndDistNums./totalDataPoints;
+
+conditionalProb = PrHitAndDist./PrDist;
+
+sum(conditionalProb);
+
+figure();plot(allDists,PrDist);title('Probability of Being Specific Distance to Center of Mass');
+
+figure();plot(allDists,PrHitAndDist);title('Probability of Hit and Being Specific Distance to Center of Mass');
+
+x0 = 500;
+                  
+%myFun = @(x,data) (x(1)./(1+exp(x(2)*(data-x(3))))+x(4));
+myFun = @(x,data) ((x.^(data)*exp(-x))./(factorial(x)));
+
+[x,resnorm] =  lsqcurvefit(myFun,x0,allDists,PrHitAndDist);
+
+figure();plot(allDists,myFun(x,allDists));
+
+figure();plot(allDists,conditionalProb);title('Conditional Probability of Hit | Distance to Center of Mass');
+
+figure();plot(allDists,conditionalProb./sum(conditionalProb));title('Normalized Conditional Probability');
+
+% x0 = [1 1];
+% 
+% myFun = @(x,data) ((x(2)/x(1)).*(data./x(1)).^(x(2)-1).*exp(-(data./x(1)).^(x(2))));
+% 
+% [x,resnorm] =  lsqcurvefit(myFun,x0,allDists,conditionalProb./sum(conditionalProb));
+% 
+% figure();plot(allDists,myFun(x,allDists));title('Least Squares Weibull Fit');
+
+% fit probability distributions
+%forDistFit = forDistFit./max(forDistFit);
+
+% normPd = fitdist(forDistFit','normal');
+% 
+% normPd
+% 
+% normPDF = pdf(normPd,0:max(allDists));
+% 
+% figure();plot(0:max(allDists),normPDF);title('Normal Distribution fit to Distance Data');
+% 
+% gammaPd = fitdist(forHitDistFit','gamma');
+% 
+% gammaPd
+% 
+% gammaPDF = pdf(gammaPd,0:max(allDists));
+% figure();plot(0:max(allDists),gammaPDF);title('Gamma Distribution fit to Hit and Distance Data');
+% 
+% temp = forHitDistFit./max(forHitDistFit);
+% betaPd = fitdist(temp','beta');
+% 
+% betaPd
+% 
+% betaPDF = pdf(betaPd,0:0.001:1);
+% 
+% figure();plot(0:0.001:1,betaPDF);title('Beta distribution fit to Hit and Distance Data');
+% 
