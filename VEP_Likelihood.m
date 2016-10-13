@@ -18,11 +18,13 @@ minWin = [60,120]; % milliseconds
 maxWin = 1:250;
 
 lowMin=[60];
-highMin =[110];
+highMin =[120];
 thresh = [-150];
 maxParam = zeros(4,4);
 minParam = zeros(4,4);
 Residuals = zeros(4,4);
+
+load('VEP_Prototype');
 
 total = [];
 for lowii = 1
@@ -38,7 +40,7 @@ for lowii = 1
             totnumChans = zeros(numFiles,1);
             totnumStimuli = zeros(numFiles,1);
             totnumReps = zeros(numFiles,1);
-            for ii=1:numFiles
+            for ii=48
                 load(fileList(ii).name);
                 if exist('MapParams','var') == 1
                     totResponse{ii} = MapParams.Response;
@@ -51,17 +53,28 @@ for lowii = 1
                         if isnan(MapParams.centerMass.x(jj)) == 0
                             xc = MapParams.centerMass.x(jj);
                             yc = MapParams.centerMass.y(jj);
+                            Y = [];
+                            X = [];
+                            DISTS = [];
                             for kk=1:totnumStimuli(ii)
                                 xpos = MapParams.centerVals(kk,1);
                                 ypos = MapParams.centerVals(kk,2);
                                 dist = ceil(sqrt((xc-xpos).^2+(yc-ypos).^2));
-                                dist = dist-mod(dist,10)+1;
+                                dist = dist-mod(dist,20)+1;
+                                
                                 for ll=1:totnumReps(ii)
-                                    VEP =squeeze(MapParams.Response(jj,kk,ll,fullWin));
+                                    VEP = squeeze(MapParams.Response(jj,kk,ll,fullWin));
                                     baseline = 0;
-                                    
                                     VEP = VEP-baseline;
+                                    
+                                    % get scalar multiple for vector
+                                    %  division
+                                    Y = [Y;dot(VEP,VEP_Prototype)/(norm(VEP_Prototype).^2)];
+                                    X = [X;xpos,ypos];
+                                    DISTS = [DISTS;dist-1];
+                                    
                                     [minVal,minInd] = min(VEP);
+                                                                   
 %                                     sizes = [sizes;[minVal,dist]];
                                     if minInd > lowMin(lowii) && minInd < highMin(highii) && minVal < thresh(threshii)
                                        Pr_Hit(dist,1) = Pr_Hit(dist,1)+1;
@@ -76,6 +89,31 @@ for lowii = 1
                                     Pr_Size(dist,2) = Pr_Size(dist,2)+1;
                                 end
                             end
+                        
+                            % Uri's VEP model non-linear regression
+                            b0 = [700,1200,20000,50,25000];
+                            figure();scatter(DISTS,Y);
+                            myFun = @(b,x) exp(-0.5.*((b(5)/(b(3)*b(5)-b(4)*b(4))).*(x(:,1)-b(1)).^2-...
+                                (x(:,1)-b(1)).*(x(:,2)-b(2)).*(2*b(4)/(b(3)*b(5)-b(4)*b(4)))+...
+                                (b(3)/(b(3)*b(5)-b(4)*b(4))).*(x(:,2)-b(2)).^2));
+                            
+                            [beta,R,J,covB,MSE] = nlinfit(X,Y,myFun,b0);
+                            
+                            %minFun = @(b) 
+                            %fmincon for constrained minimization
+                            
+                            ci = nlparci(beta,R,'covar',covB);
+                            
+                            x = 0:10:2500;
+                            y = 0:10:1600;
+                            Z = zeros(length(x),length(y));
+                            for ww=1:length(x)
+                                for xx=1:length(y)
+                                    Z(ww,xx) = myFun(beta,[x(ww),y(xx)]);
+                                end
+                            end
+                            figure();imagesc(x,y,Z');set(gca,'YDir','normal');
+                        
                         end
                     end
                     clear MapParams;
@@ -148,7 +186,7 @@ for lowii = 1
               myFun = @(x,data) (x(1).*exp(-(data.*data)./(2.*x(2).*x(2)))+x(3));
 
               [x,resnorm] =  lsqcurvefit(myFun,x0,distVals,finalPr);
-               x
+
             maxParam(lowii,highii,threshii) = x(1);
             minParam(lowii,highii,threshii) = x(3);
             Residuals(lowii,highii,threshii) = resnorm;
@@ -162,7 +200,7 @@ for lowii = 1
      end
 end
 
-newTotal = total(total(:,2)<=1600,:);
+newTotal = total(total(:,2)<=2000,:);
 
 totalDataPoints = length(newTotal);
 
@@ -173,9 +211,11 @@ distLen = length(allDists);
 distNums = zeros(distLen,1);
 
 hitAndDistNums = zeros(distLen,1);
+missAndDistNums = zeros(distLen,1);
 
 forDistFit = [];
 forHitDistFit = [];
+forMissDistFit = [];
 for ii=1:totalDataPoints
     for jj=1:distLen
         if newTotal(ii,2) == allDists(jj)
@@ -186,64 +226,35 @@ for ii=1:totalDataPoints
             hitAndDistNums(jj) = hitAndDistNums(jj)+1;
             forHitDistFit = [forHitDistFit,allDists(jj)];
         end
+        if newTotal(ii,2) == allDists(jj) && newTotal(ii,1) == 0
+           missAndDistNums(jj) = missAndDistNums(jj)+1;
+        end
     end
 end
 PrDist = distNums./totalDataPoints;
 PrHitAndDist = hitAndDistNums./totalDataPoints;
 
-conditionalProb = PrHitAndDist./PrDist;
+PrMissAndDist = missAndDistNums./totalDataPoints;
 
-sum(conditionalProb);
+
+conditionalProb = PrHitAndDist./PrDist;
 
 figure();plot(allDists,PrDist);title('Probability of Being Specific Distance to Center of Mass');
 
 figure();plot(allDists,PrHitAndDist);title('Probability of Hit and Being Specific Distance to Center of Mass');
 
-x0 = 500;
-                  
-%myFun = @(x,data) (x(1)./(1+exp(x(2)*(data-x(3))))+x(4));
-myFun = @(x,data) ((x.^(data)*exp(-x))./(factorial(x)));
+figure();plot(allDists,PrMissAndDist);title('Probability of Miss and Being Specific Distance to Center of Mass');
 
-[x,resnorm] =  lsqcurvefit(myFun,x0,allDists,PrHitAndDist);
+% x0 = 500;
+%                   
+% %myFun = @(x,data) (x(1)./(1+exp(x(2)*(data-x(3))))+x(4));
+% myFun = @(x,data) ((x.^(data)*exp(-x))./(factorial(x)));
+% 
+% [x,resnorm] =  lsqcurvefit(myFun,x0,allDists,PrHitAndDist);
 
-figure();plot(allDists,myFun(x,allDists));
-
+% figure();plot(allDists,myFun(x,allDists));
+figure();plot(allDists,myFun(x,allDists).*PrDist);
+figure();plot(allDists,(1-myFun(x,allDists)).*PrDist);
 figure();plot(allDists,conditionalProb);title('Conditional Probability of Hit | Distance to Center of Mass');
-
 figure();plot(allDists,conditionalProb./sum(conditionalProb));title('Normalized Conditional Probability');
 
-% x0 = [1 1];
-% 
-% myFun = @(x,data) ((x(2)/x(1)).*(data./x(1)).^(x(2)-1).*exp(-(data./x(1)).^(x(2))));
-% 
-% [x,resnorm] =  lsqcurvefit(myFun,x0,allDists,conditionalProb./sum(conditionalProb));
-% 
-% figure();plot(allDists,myFun(x,allDists));title('Least Squares Weibull Fit');
-
-% fit probability distributions
-%forDistFit = forDistFit./max(forDistFit);
-
-% normPd = fitdist(forDistFit','normal');
-% 
-% normPd
-% 
-% normPDF = pdf(normPd,0:max(allDists));
-% 
-% figure();plot(0:max(allDists),normPDF);title('Normal Distribution fit to Distance Data');
-% 
-% gammaPd = fitdist(forHitDistFit','gamma');
-% 
-% gammaPd
-% 
-% gammaPDF = pdf(gammaPd,0:max(allDists));
-% figure();plot(0:max(allDists),gammaPDF);title('Gamma Distribution fit to Hit and Distance Data');
-% 
-% temp = forHitDistFit./max(forHitDistFit);
-% betaPd = fitdist(temp','beta');
-% 
-% betaPd
-% 
-% betaPDF = pdf(betaPd,0:0.001:1);
-% 
-% figure();plot(0:0.001:1,betaPDF);title('Beta distribution fit to Hit and Distance Data');
-% 
