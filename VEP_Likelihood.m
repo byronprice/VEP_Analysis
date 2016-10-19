@@ -40,7 +40,7 @@ for lowii = 1
             totnumChans = zeros(numFiles,1);
             totnumStimuli = zeros(numFiles,1);
             totnumReps = zeros(numFiles,1);
-            for ii=48
+            for ii=48:52
                 load(fileList(ii).name);
                 if exist('MapParams','var') == 1
                     totResponse{ii} = MapParams.Response;
@@ -69,7 +69,8 @@ for lowii = 1
                                     
                                     % get scalar multiple for vector
                                     %  division
-                                    Y = [Y;dot(VEP,VEP_Prototype)/(norm(VEP_Prototype).^2)];
+%                                     Y = [Y;dot(VEP,VEP_Prototype)/(norm(VEP_Prototype).^2)];
+                                    Y = [Y;VEP'];
                                     X = [X;xpos,ypos];
                                     DISTS = [DISTS;dist-1];
                                     
@@ -91,29 +92,7 @@ for lowii = 1
                             end
                         
                             % Uri's VEP model non-linear regression
-                            b0 = [700,1200,20000,50,25000];
-                            figure();scatter(DISTS,Y);
-                            myFun = @(b,x) exp(-0.5.*((b(5)/(b(3)*b(5)-b(4)*b(4))).*(x(:,1)-b(1)).^2-...
-                                (x(:,1)-b(1)).*(x(:,2)-b(2)).*(2*b(4)/(b(3)*b(5)-b(4)*b(4)))+...
-                                (b(3)/(b(3)*b(5)-b(4)*b(4))).*(x(:,2)-b(2)).^2));
-                            
-                            [beta,R,J,covB,MSE] = nlinfit(X,Y,myFun,b0);
-                            
-                            %minFun = @(b) 
-                            %fmincon for constrained minimization
-                            
-                            ci = nlparci(beta,R,'covar',covB);
-                            
-                            x = 0:10:2500;
-                            y = 0:10:1600;
-                            Z = zeros(length(x),length(y));
-                            for ww=1:length(x)
-                                for xx=1:length(y)
-                                    Z(ww,xx) = myFun(beta,[x(ww),y(xx)]);
-                                end
-                            end
-                            figure();imagesc(x,y,Z');set(gca,'YDir','normal');
-                        
+                            [MapFun,Beta] = NonLinRetinoMap(X,Y,[2500,1500]);                  
                         end
                     end
                     clear MapParams;
