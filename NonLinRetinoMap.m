@@ -1,4 +1,4 @@
- function [MapFun,Beta] = NonLinRetinoMap(X,VEPs,ScreenDim)
+function [MapFun,Beta] = NonLinRetinoMap(X,VEPs,ScreenDim)
 %NonLinRetinoMap.m
 %   Take data from an LFP retinotopic mapping experiment and find the
 %    retinotopic center of mass. 

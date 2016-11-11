@@ -30,7 +30,7 @@ ycen = (max(yaxis)-1)/2;
 %  it appears to work under conditions when the data is real, but it also 
 %  gives what look to be false positives
 total = 1;
-reps = 1000;
+reps = 5000;
 centers = zeros(total,2);
 width = zeros(total,2);
 alpha = 0.05;
@@ -108,7 +108,7 @@ center = [500,600];
 allPossDists = DistFun(center,centerVals);
 [~,index] = min(allPossDists);
 %newP = b(3)*ones(length(pBernoulli),1);
-testDist = hyperParameterFun([0.4,250,0.2],(0:maxDist)');
+testDist = hyperParameterFun([0.4,250,0.15],(0:maxDist)');
 HitMissProbs = testDist(allPossDists);
 
 Prior = Prior./sum(Prior);
@@ -160,6 +160,8 @@ for zz=1:total
             loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ii,3)).*((1-pBernoulli(allPossDists)).^(1-Response(ii,3))));
         end
 
+        [B] = PoissonRetinoMap(Response,[max(xaxis),max(yaxis)]);
+        
         loglikely = reshape(loglikely,[leny,lenx]);
         figure();subplot(3,1,1);imagesc(xaxis,yaxis,loglikely);set(gca,'YDir','normal');
         
@@ -190,45 +192,46 @@ for zz=1:total
         figure();imagesc(xaxis,yaxis,Posterior);set(gca,'YDir','normal');
         caxis([0,50]);
             
-        loglikely = zeros(lenx*leny,1);
-        likely = ones(lenx*leny,1);
-        totalProbData = zeros(lenx*leny,1);
-
-        for ll=1:reps
-            allPossDists = DistFun(Response(ll,1:2),centerVals);
-            Inds = (allPossDists-1)*length(allPossDists)+(1:length(allPossDists))';
-            loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3))));
-            loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3))));
-%             loglikely = loglikely+(((pBernoulli(allPossDists)).^Response(ll,3)).*((1-pBernoulli(allPossDists)).^(1-Response(ll,3))));
-%             totalProbData = totalProbData+((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3)));
-%             totalProbData = totalProbData+((pBernoulli(allPossDists).*ProbData(Inds)).^Response(ll,3)).*(((1-pBernoulli(allPossDists)).*ProbData(Inds)).^(1-Response(ll,3)));
-            totalProbData = totalProbData+log(((ProbHitUpdate(Inds)).^Response(ll,3)).*((ProbMissUpdate(Inds)).^(1-Response(ll,3))));
-%             loglikely = loglikely+log((((pBernoulli(allPossDists)./(PrHit.*ProbHitUpdate(Inds))).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./(PrMiss.*ProbMissUpdate(Inds))).^(1-Response(ll,3)))));
-%             likely = likely.*(((pBernoulli(allPossDists)./(PrHit)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./PrMiss).^(1-Response(ll,3))));
-%             loglikely = loglikely+log((((pBernoulli(allPossDists)./(PrHit)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./PrMiss).^(1-Response(ll,3)))));
-%             loglikely = loglikely+log((((conditionalProbHit(Inds)).^Response(ll,3)).*((conditionalProbMiss(Inds)).^(1-Response(ll,3)))));
-%             likely = likely.*(((conditionalProbHit(Inds)).^Response(ll,3)).*((conditionalProbMiss(Inds)).^(1-Response(ll,3))));
-%             if mod(ll,reps/20) == 0
-%                 z = reshape(likely./totalProbData,[leny,lenx])';
-%                 figure();imagesc(xaxis,yaxis,z');set(gca,'YDir','normal');colorbar;
-%                 title(sprintf('Hit or Miss: %d',Response(ll,3)));
-%             end
-        end
-        Posterior = loglikely-totalProbData;
-        unifProb = 1./(lenx*leny);
-        
-        loglikely = reshape(loglikely,[leny,lenx])';
-        totalProbData = reshape(totalProbData,[leny,lenx])';
-        figure();imagesc(xaxis,yaxis,loglikely');set(gca,'YDir','normal');colorbar;
-        figure();imagesc(xaxis,yaxis,totalProbData');set(gca,'YDir','normal');colorbar;
-        figure();imagesc(xaxis,yaxis,loglikely'-totalProbData');set(gca,'YDir','normal');colorbar;
-        Posterior = exp(Posterior);
-        Posterior = Posterior./sum(Posterior);
-        
-        Posterior = Posterior./unifProb;
-        Posterior = reshape(Posterior,[leny,lenx])';
-        figure();imagesc(xaxis,yaxis,Posterior');set(gca,'YDir','normal');colorbar;
-        caxis([0 100]);
+%         loglikely = zeros(lenx*leny,1);
+%         likely = ones(lenx*leny,1);
+%         totalProbData = zeros(lenx*leny,1);
+% 
+%         for ll=1:reps
+%             allPossDists = DistFun(Response(ll,1:2),centerVals);
+%             Inds = (allPossDists-1)*length(allPossDists)+(1:length(allPossDists))';
+%             loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3))));
+%             loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3))));
+% %             loglikely = loglikely+(((pBernoulli(allPossDists)).^Response(ll,3)).*((1-pBernoulli(allPossDists)).^(1-Response(ll,3))));
+% %             totalProbData = totalProbData+((pBernoulli(allPossDists)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))).^(1-Response(ll,3)));
+% %             totalProbData = totalProbData+((pBernoulli(allPossDists).*ProbData(Inds)).^Response(ll,3)).*(((1-pBernoulli(allPossDists)).*ProbData(Inds)).^(1-Response(ll,3)));
+%             totalProbData = totalProbData+log(((ProbHitUpdate(Inds)).^Response(ll,3)).*((ProbMissUpdate(Inds)).^(1-Response(ll,3))));
+% %             loglikely = loglikely+log((((pBernoulli(allPossDists)./(PrHit.*ProbHitUpdate(Inds))).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./(PrMiss.*ProbMissUpdate(Inds))).^(1-Response(ll,3)))));
+% %             likely = likely.*(((pBernoulli(allPossDists)./(PrHit)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./PrMiss).^(1-Response(ll,3))));
+% %             loglikely = loglikely+log((((pBernoulli(allPossDists)./(PrHit)).^Response(ll,3)).*(((1-pBernoulli(allPossDists))./PrMiss).^(1-Response(ll,3)))));
+% %             loglikely = loglikely+log((((conditionalProbHit(Inds)).^Response(ll,3)).*((conditionalProbMiss(Inds)).^(1-Response(ll,3)))));
+% %             likely = likely.*(((conditionalProbHit(Inds)).^Response(ll,3)).*((conditionalProbMiss(Inds)).^(1-Response(ll,3))));
+% %             if mod(ll,reps/20) == 0
+% %                 z = reshape(likely./totalProbData,[leny,lenx])';
+% %                 figure();imagesc(xaxis,yaxis,z');set(gca,'YDir','normal');colorbar;
+% %                 title(sprintf('Hit or Miss: %d',Response(ll,3)));
+% %             end
+%         end
+%         Posterior = loglikely-totalProbData;
+%         unifProb = 1./(lenx*leny);
+%         
+%         loglikely = reshape(loglikely,[leny,lenx])';
+%         totalProbData = reshape(totalProbData,[leny,lenx])';
+%         figure();imagesc(xaxis,yaxis,loglikely');set(gca,'YDir','normal');colorbar;
+%         figure();imagesc(xaxis,yaxis,totalProbData');set(gca,'YDir','normal');colorbar;
+%         figure();imagesc(xaxis,yaxis,loglikely'-totalProbData');set(gca,'YDir','normal');colorbar;
+%         Posterior = exp(Posterior);
+%         Posterior = Posterior./sum(Posterior);
+%         
+%         Posterior = Posterior./unifProb;
+%         Posterior = reshape(Posterior,[leny,lenx])';
+%         figure();imagesc(xaxis,yaxis,Posterior');set(gca,'YDir','normal');colorbar;
+%         caxis([0 100]);
+%         
         
         nonZeroInds = find(Response(:,3)==1);
         zeroInds = find(Response(:,3)==0);

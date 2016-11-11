@@ -71,7 +71,7 @@ for lowii = 1
                                     %  division
 %                                     Y = [Y;dot(VEP,VEP_Prototype)/(norm(VEP_Prototype).^2)];
                                     Y = [Y;VEP'];
-                                    X = [X;xpos,ypos];
+                                    X = [X;xpos,ypos,xpos.^2,ypos.^2,xpos.*ypos];
                                     DISTS = [DISTS;dist-1];
                                     
                                     [minVal,minInd] = min(VEP);
@@ -91,8 +91,8 @@ for lowii = 1
                                 end
                             end
                         
-                            % Uri's VEP model non-linear regression
-                            [MapFun,Beta] = NonLinRetinoMap(X,Y,[2500,1500]);                  
+                            % Uri's VEP model generalized-linear regression
+                            [B] = GLMRetinoMap(X,Y,VEP_Prototype,[2500,1500]);                  
                         end
                     end
                     clear MapParams;
