@@ -40,8 +40,9 @@ for lowii = 1
             totnumChans = zeros(numFiles,1);
             totnumStimuli = zeros(numFiles,1);
             totnumReps = zeros(numFiles,1);
-            for ii=48:52
+            for ii=51
                 load(fileList(ii).name);
+                display(fileList(ii).name);
                 if exist('MapParams','var') == 1
                     totResponse{ii} = MapParams.Response;
                     totnumChans(ii) = size(MapParams.significantStimuli,1);
@@ -92,7 +93,7 @@ for lowii = 1
                             end
                         
                             % Uri's VEP model generalized-linear regression
-                            [B] = GLMRetinoMap(X,Y,VEP_Prototype,[2500,1500]);                  
+                            LikelyRetinoMap(X,Y,VEP_Prototype,[2500,1500]);                  
                         end
                     end
                     clear MapParams;

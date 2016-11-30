@@ -37,15 +37,17 @@ end
 
 [B,dev,stats] = glmfit(DesignMat,Y,'normal');
 
-T = table(B,stats.se,'RowNames',{'Intercept','x','y','x^2','y^2','xy'});
+Standard_Error = stats.se;
+P_Values = stats.p;
+T = table(B,Standard_Error,P_Values,'RowNames',{'Intercept','x','y','xx','yy','xy'});
 display(T);
 display(sprintf('Model Deviance: %3.2f',dev));
 
-vepProtoMin = min(VEP_Prototype);
+vepProtoMin = abs(min(VEP_Prototype));
 xPos = 1:ScreenDim(1);yPos = 1:ScreenDim(2);
 [xPos,yPos] = meshgrid(xPos,yPos);
 modelFit = B(1)+vepProtoMin.*(B(2).*xPos+B(3).*yPos+B(4).*xPos.*xPos+B(5).*yPos.*yPos+B(6).*xPos.*yPos);
-figure();imagesc(modelFit);colormap('jet');h = colorbar;ylabel(h,'Peak Negativity Magnitude');
+figure();imagesc(modelFit);h = colorbar;ylabel(h,'VEP Negativity');
 title('Retinotopic Map Fit for Normal GLM');
 end
 
