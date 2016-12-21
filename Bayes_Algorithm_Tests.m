@@ -1,11 +1,11 @@
 % Bayes_Algorithm_Tests.m
-load('InvProbData_RecordingRoomScreen.mat');
+%load('InvProbData_RecordingRoomScreen.mat');
 load('ProbData_RecordingRoomScreen.mat');
 
-reps = 2000;
+reps = 1000;
 
-trueCenter = [800,500];
-trueSTD = 200;
+trueCenter = [1000,700];
+trueSTD = 250;
 display(sprintf('True Center Point: %d, %d (screen position in pixels)',trueCenter(1),trueCenter(2)));
 display(sprintf('True Standard Deviation: %d pixels',trueSTD));
 %likelihoodFun = @(distToCenterMass,SigmaSquare) (repmat((1/sqrt(2*pi)).*SigmaSquare.^(1/2),length(distToCenterMass),1).*exp(-(distToCenterMass.^2)*(SigmaSquare./2)));
@@ -25,10 +25,9 @@ FullLikelihood = zeros(leny,lenx,lenstd);
 
 bigcount = 1;
 for std=STDS
-rng('default');
-b = [0.4 std .2];
+b = [0.2 std .2];
 maxProbHit = b(1)+b(3);
-
+PrHitNoise = b(3);
 hyperParameterFun = @(b,distToCenterMass) (b(1)*exp(-(distToCenterMass.^2)./(2*b(2)*b(2)))+b(3));
 
 
@@ -122,7 +121,7 @@ center = trueCenter;
 allPossDists = DistFun(center,centerVals);
 [~,index] = min(allPossDists);
 %newP = b(3)*ones(length(pBernoulli),1);
-testDist = hyperParameterFun([0.4,trueSTD,0.2],(0:maxDist)');
+testDist = hyperParameterFun([0.2,trueSTD,PrHitNoise],(0:maxDist)');
 HitMissProbs = testDist(allPossDists);
 
 Prior = Prior./sum(Prior);
@@ -167,26 +166,138 @@ for zz=1:total
         ProbDist(ProbDist==0) = 1;
         conditionalProb = ProbHitDist./ProbDist;
         
-        loglikely = zeros(lenx*leny,1);
-        loginv = zeros(lenx*leny,1);
-        logprobs = zeros(lenx*leny,1);
-        for ii=1:reps
-            allPossDists = DistFun(Response(ii,1:2),centerVals);
-            Inds = (allPossDists-1)*length(allPossDists)+(1:length(allPossDists))';
-            loginv = loginv+log(InvProbData(Inds));
-            logprobs = logprobs+log(ProbData(Inds));
-            loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ii,3))...
-                .*(((1-pBernoulli(allPossDists))).^(1-Response(ii,3))));
+        numParameters = 4;
+        
+        numRepeats = 10;
+        gradientVec = zeros(numParameters,1);
+        bigParameterVec = zeros(numRepeats,numParameters);
+        maxITER = 1000;
+        tolerance = 0.01;
+        h = [0.01,1,1,1];
+        
+        Bounds = [0,1-PrHitNoise;min(xaxis),max(xaxis);min(yaxis),max(yaxis);1,1000];
+   
+        display('Steepest Ascent ...');
+        flashPoints = Response(:,1:2);
+        hitMiss = Response(:,3);
+        
+        % repeat gradient ascent from a number of different starting
+        % positions
+        for repeats = 1:numRepeats
+            parameterVec = zeros(maxITER,numParameters);
+            logLikelihood = zeros(maxITER,1);
+            %parameterVec(1,:) = squeeze(bigParameterVec(repeats,:));
+            parameterVec(1,1) = Bounds(1,1)+(Bounds(1,2)-Bounds(1,1)).*rand;
+            parameterVec(1,2) = Bounds(2,1)+(Bounds(2,2)-Bounds(2,1)).*rand;
+            parameterVec(1,3) = Bounds(3,1)+(Bounds(3,2)-Bounds(3,1)).*rand;
+            parameterVec(1,4) = Bounds(4,1)+(Bounds(4,2)-Bounds(4,1)).*rand;
+            
+            figure();scatter3(trueCenter(1),trueCenter(2),trueSTD,'filled');axis([0 max(xaxis) 0 max(yaxis) 0 Bounds(4,2)]);hold on;
+%             figure();plot(b(1),0.75,'*','MarkerSize',20);axis([0 1 0 1]);hold on;
+            % for each starting position, do maxITER iterations
+            for iter=2:maxITER
+                % calcualte likelihood at the current position in parameter
+                %  space
+                for kk=1:reps
+                    distance = DistFun(flashPoints(kk,:),[parameterVec(iter-1,2),parameterVec(iter-1,3)]);
+                    p = hyperParameterFun([parameterVec(iter-1,1),parameterVec(iter-1,4),PrHitNoise],distance);
+                    logLikelihood(iter-1) = logLikelihood(iter-1)+log((p.^(hitMiss(kk))).*((1-p).^(1-hitMiss(kk))));
+                end
+                
+                if iter > 300
+                    check = sum(diff(logLikelihood(iter-250:iter-1)));
+                    if check < tolerance
+                        break;
+                    end
+                end
+                
+                temp = parameterVec(iter-1,:);
+                randInd = random('Discrete Uniform',numParameters,1);
+                temp(randInd) = Bounds(randInd,1)+(Bounds(randInd,2)-Bounds(randInd,1)).*rand;
+%                 for kk=1:numParameters
+%                    temp(kk) = Bounds(kk,1)+(Bounds(kk,2)-Bounds(kk,1)).*rand; 
+%                 end
+                likely = 0;
+                for kk=1:reps
+                    distance = DistFun(flashPoints(kk,:),[temp(2),temp(3)]);
+                    p = hyperParameterFun([temp(1),temp(4),PrHitNoise],distance);
+                    likely = likely+log((p.^(hitMiss(kk))).*((1-p).^(1-hitMiss(kk))));
+                end
+                
+                if likely > logLikelihood(iter-1)
+                    parameterVec(iter-1,:) = temp';
+                    logLikelihood(iter-1) = likely;
+                end
+                
+            
+                    % calculate the gradient by calculating the likelihood
+                    %  after moving over a small step h along each
+                    %  dimension
+                    for jj=1:numParameters
+                        tempParameterVec = parameterVec(iter-1,:);
+                        tempParameterVec(jj) = tempParameterVec(jj)+h(jj);
+                        gradLikelihood = 0;
+                        for kk=1:reps
+                            distance = DistFun(flashPoints(kk,:),[tempParameterVec(2),tempParameterVec(3)]);
+                            p = hyperParameterFun([tempParameterVec(1),tempParameterVec(4),PrHitNoise],distance);
+                            gradLikelihood = gradLikelihood+log((p.^(hitMiss(kk))).*((1-p).^(1-hitMiss(kk))));
+                        end
+                        gradientVec(jj) = (gradLikelihood-logLikelihood(iter-1))./h(jj);
+                    end
+                    
+                    % line search to get distance to move along gradient
+                    alpha = [0,1e-6,1e-4,1e-2,1e-1,1e0,1e1];
+                    lineSearchLikelihoods = zeros(length(alpha),1);
+                    lineSearchLikelihoods(1) = logLikelihood(iter-1);
+                    
+                    for ii=2:length(alpha)
+                        tempParameterVec = parameterVec(iter-1,:)'+gradientVec.*alpha(ii);
+                        for kk=1:reps
+                            distance = DistFun(flashPoints(kk,:),[tempParameterVec(2),tempParameterVec(3)]);
+                            p = hyperParameterFun([tempParameterVec(1),tempParameterVec(4),PrHitNoise],distance);
+                            lineSearchLikelihoods(ii) = lineSearchLikelihoods(ii)+log((p.^(hitMiss(kk))).*((1-p).^(1-hitMiss(kk))));
+                        end
+                    end
+                    
+                    newInds = find(imag(lineSearchLikelihoods)==0);
+                    newValues = zeros(length(newInds),1);
+                    for ii=1:length(newInds)
+                        newValues(ii) = lineSearchLikelihoods(newInds(ii));
+                    end
+                    [~,ind] = max(newValues);
+                    ind = newInds(ind);
+                    
+                    for jj=1:numParameters
+                        parameterVec(iter,jj) = max(Bounds(jj,1),min(parameterVec(iter-1,jj)+alpha(ind)*gradientVec(jj),Bounds(jj,2))); 
+                    end
+                    title(sprintf('b_1 = %3.2f',parameterVec(iter,1)));
+                    scatter3(parameterVec(iter,2),parameterVec(iter,3),parameterVec(iter,4),'filled');pause(0.05);
+%                     scatter(parameterVec(iter,1),0.5,'filled');pause(0.05);
+            end
+            bigParameterVec(repeats,:) = parameterVec(iter-1,:);
         end
-        
- %       [B] = PoissonRetinoMap(Response,[max(xaxis),max(yaxis)]);
-        loginv = reshape(loginv,[leny,lenx]);
-        logprobs = reshape(logprobs,[leny,lenx]);
-        
-        loglikely = reshape(loglikely,[leny,lenx]);
-        
-        FullLikelihood(:,:,bigcount) = loglikely;
-        bigcount = bigcount+1;
+
+        median(bigParameterVec,1)
+%         loglikely = zeros(lenx*leny,1);
+%         loginv = zeros(lenx*leny,1);
+%         logprobs = zeros(lenx*leny,1);
+%         for ii=1:reps
+%             allPossDists = DistFun(Response(ii,1:2),centerVals);
+%             Inds = (allPossDists-1)*length(allPossDists)+(1:length(allPossDists))';
+%             loginv = loginv+log(InvProbData(Inds));
+%             logprobs = logprobs+log(ProbData(Inds));
+%             loglikely = loglikely+log(((pBernoulli(allPossDists)).^Response(ii,3))...
+%                 .*(((1-pBernoulli(allPossDists))).^(1-Response(ii,3))));
+%         end
+%         
+%  %       [B] = PoissonRetinoMap(Response,[max(xaxis),max(yaxis)]);
+%         loginv = reshape(loginv,[leny,lenx]);
+%         logprobs = reshape(logprobs,[leny,lenx]);
+%         
+%         loglikely = reshape(loglikely,[leny,lenx]);
+%         
+%         FullLikelihood(:,:,bigcount) = loglikely;
+%         bigcount = bigcount+1;
  %       figure();imagesc(xaxis,yaxis,loglikely);set(gca,'YDir','normal');
    %     colorbar;
 %         figure();imagesc(xaxis,yaxis,loginv);set(gca,'YDir','normal');colorbar;
