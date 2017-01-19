@@ -25,7 +25,7 @@ FullLikelihood = zeros(leny,lenx,lenstd);
 
 bigcount = 1;
 for std=STDS
-b = [0.2 std .2];
+b = [0.4 std .2];
 maxProbHit = b(1)+b(3);
 PrHitNoise = b(3);
 hyperParameterFun = @(b,distToCenterMass) (b(1)*exp(-(distToCenterMass.^2)./(2*b(2)*b(2)))+b(3));
@@ -121,7 +121,7 @@ center = trueCenter;
 allPossDists = DistFun(center,centerVals);
 [~,index] = min(allPossDists);
 %newP = b(3)*ones(length(pBernoulli),1);
-testDist = hyperParameterFun([0.2,trueSTD,PrHitNoise],(0:maxDist)');
+testDist = hyperParameterFun([0.4,trueSTD,PrHitNoise],(0:maxDist)');
 HitMissProbs = testDist(allPossDists);
 
 Prior = Prior./sum(Prior);
@@ -193,6 +193,8 @@ for zz=1:total
             parameterVec(1,4) = Bounds(4,1)+(Bounds(4,2)-Bounds(4,1)).*rand;
             
             figure();scatter3(trueCenter(1),trueCenter(2),trueSTD,'filled');axis([0 max(xaxis) 0 max(yaxis) 0 Bounds(4,2)]);hold on;
+            xlabel('Horizontal Screen Position');ylabel('Vertical Screen Position');zlabel('Standard Deviation');
+            pause(5);
 %             figure();plot(b(1),0.75,'*','MarkerSize',20);axis([0 1 0 1]);hold on;
             % for each starting position, do maxITER iterations
             for iter=2:maxITER

@@ -1,6 +1,5 @@
 % FullTestRetinotopy.m
 
-
 % initialize variables
 flashes = [250,500,1000,2000];
 
