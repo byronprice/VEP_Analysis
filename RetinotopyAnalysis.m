@@ -30,16 +30,18 @@ for zz=1:numFiles
        centerMass(:,2) = temp.y;
        
        display(strcat('Running file-',files(zz).name));
-       dataFile = [dataFile;files(zz).name];
+       
        for ii=1:numChans
            if isnan(centerMass(ii,1)) == 0
+               dataFile = [dataFile;files(zz).name];
                gaussResponse = zeros(1,numStimuli*numReps,2);
                binomResponse = zeros(1,numStimuli*numReps,2);
                count = 1;
                for jj=1:numStimuli
                    for kk=1:numReps
                        gaussResponse(1,count,1) = jj;
-                       gaussResponse(1,count,2) = min(tempResponse(1,jj,kk,40:120));
+                       gaussResponse(1,count,2) = max(tempResponse(ii,jj,kk,150:250))-min(tempResponse(ii,jj,kk,50:120));
+%                        gaussResponse(1,count,2) = min(tempResponse(ii,jj,kk,50:120));
                        binomResponse(1,count,1) = jj;
                        if gaussResponse(1,count,2) < -150
                            binomResponse(1,count,2) = 1;
@@ -54,18 +56,18 @@ for zz=1:numFiles
                
                errorX = abs(tempX-centerMass(ii,1))/centerMass(ii,1);
                errorY = abs(tempY-centerMass(ii,2))/centerMass(ii,2);
-               gaussError = (errorX+errorY)/2;
+               gaussError = (errorX+errorY)/2;display(gaussError);
                allGaussErrors = [allGaussErrors,gaussError];
                
-               [bernoulliParameters] = FitLFPretinoModel(binomResponse,xaxis,yaxis,0.2,centerVals);
-               allBinomParams = [allBinomParams;bernoulliParameters];
-               tempX = bernoulliParameters(1,2);
-               tempY = bernoulliParameters(1,3);
-               
-               errorX = abs(tempX-centerMass(ii,1))/centerMass(ii,1);
-               errorY = abs(tempY-centerMass(ii,2))/centerMass(ii,2);
-               binomError = (errorX+errorY)/2;
-               allBinomErrors = [allBinomErrors,binomError];
+%                [bernoulliParameters] = FitLFPretinoModel(binomResponse,xaxis,yaxis,0.2,centerVals);
+%                allBinomParams = [allBinomParams;bernoulliParameters];
+%                tempX = bernoulliParameters(1,2);
+%                tempY = bernoulliParameters(1,3);
+%                
+%                errorX = abs(tempX-centerMass(ii,1))/centerMass(ii,1);
+%                errorY = abs(tempY-centerMass(ii,2))/centerMass(ii,2);
+%                binomError = (errorX+errorY)/2;display(binomError);
+%                allBinomErrors = [allBinomErrors,binomError];
            end
        end
    catch
@@ -73,7 +75,7 @@ for zz=1:numFiles
    end
 end
 
-save('BiggerModelCheckResults.mat','allGaussParams','allBinomParams','allGaussErrors','allBinomErrors','dataFile');
+save('MaxMin_BiggestModelCheckResults.mat','allGaussParams','allBinomParams','allGaussErrors','allBinomErrors','dataFile');
 % finalIm = zeros(length(xaxis),length(yaxis));
 % for ii=1:length(xaxis)
 %     for jj=1:length(yaxis)
