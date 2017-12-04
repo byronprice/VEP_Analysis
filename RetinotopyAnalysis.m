@@ -21,6 +21,7 @@ for zz=1:numFiles
        numChans = MapParams.numChans;
        centerVals = MapParams.centerVals;
        tempResponse = MapParams.Response;
+       meanResponse = MapParams.meanResponse;
        numStimuli = size(tempResponse,2);
        numReps = size(tempResponse,3);
        temp = MapParams.centerMass;
@@ -36,12 +37,16 @@ for zz=1:numFiles
                dataFile = [dataFile;files(zz).name];
                gaussResponse = zeros(1,numStimuli*numReps,2);
                binomResponse = zeros(1,numStimuli*numReps,2);
+               
+%                forCenterMass = min(meanResponse(ii,:,:),[],3)';
+%                centerMass(ii,1) = sum(forCenterMass.*centerVals(:,1))./sum(forCenterMass);
+%                centerMass(ii,2) = sum(forCenterMass.*centerVals(:,2))./sum(forCenterMass);
                count = 1;
                for jj=1:numStimuli
                    for kk=1:numReps
                        gaussResponse(1,count,1) = jj;
-                       gaussResponse(1,count,2) = max(tempResponse(ii,jj,kk,150:250))-min(tempResponse(ii,jj,kk,50:120));
-%                        gaussResponse(1,count,2) = min(tempResponse(ii,jj,kk,50:120));
+%                        gaussResponse(1,count,2) = max(tempResponse(ii,jj,kk,150:250))-min(tempResponse(ii,jj,kk,50:120));
+                       gaussResponse(1,count,2) = min(tempResponse(ii,jj,kk,50:120));
                        binomResponse(1,count,1) = jj;
                        if gaussResponse(1,count,2) < -150
                            binomResponse(1,count,2) = 1;
@@ -75,7 +80,7 @@ for zz=1:numFiles
    end
 end
 
-save('MaxMin_BiggestModelCheckResults.mat','allGaussParams','allBinomParams','allGaussErrors','allBinomErrors','dataFile');
+save('Redo_BiggestModelCheckResults.mat','allGaussParams','allBinomParams','allGaussErrors','allBinomErrors','dataFile');
 % finalIm = zeros(length(xaxis),length(yaxis));
 % for ii=1:length(xaxis)
 %     for jj=1:length(yaxis)
